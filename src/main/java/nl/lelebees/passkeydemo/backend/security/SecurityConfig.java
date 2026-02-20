@@ -27,21 +27,22 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) {
         http
-                .userDetailsService(userDetailsService())
-                .authorizeHttpRequests(
-                        authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
-                                .requestMatchers("/", "/register", "/login").permitAll()
-                                .anyRequest().authenticated()
-                )
+                .formLogin(withDefaults())
                 .webAuthn((webAuthn) -> webAuthn
-                        .rpId("localhost")
-                        .allowedOrigins("http://localhost")
+                        .rpId("example.com")
+                        .allowedOrigins("https://example.com")
                 );
         return http.build();
     }
 
     @Bean
     UserDetailsService userDetailsService() {
-        return new UserDetailsServiceImpl(repository);
+        UserDetails userDetails = User.withDefaultPasswordEncoder()
+                .username("user")
+                .password("password")
+                .roles("USER")
+                .build();
+
+        return new InMemoryUserDetailsManager(userDetails);
     }
 }

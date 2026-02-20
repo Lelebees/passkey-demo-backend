@@ -36,10 +36,10 @@ public class AuthenticationService {
     }
 
     public void registerUser(RegistrationData data, Email email) {
-        userService.getUserByEmail(email);
-        data.getCollectedClientData().getChallenge();
-        data.getCollectedClientData();
-        CredentialRecord r = new CredentialRecordImpl();
+//        userService.getUserByEmail(email);
+//        data.getCollectedClientData().getChallenge();
+//        data.getCollectedClientData();
+//        CredentialRecord r = new CredentialRecordImpl();
     }
 
     private static byte[] convertUUIDToByteArray(UUID uuid) {
