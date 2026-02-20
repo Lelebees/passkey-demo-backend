@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.security;
 
+import nl.lelebees.passkeydemo.backend.data.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
@@ -17,10 +18,21 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final UserRepository repository;
+
+    public SecurityConfig(UserRepository repository) {
+        this.repository = repository;
+    }
+
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) {
         http
-                .formLogin(withDefaults())
+                .userDetailsService(userDetailsService())
+                .authorizeHttpRequests(
+                        authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
+                                .requestMatchers("/", "/register", "/login").permitAll()
+                                .anyRequest().authenticated()
+                )
                 .webAuthn((webAuthn) -> webAuthn
                         .rpId("localhost")
                         .allowedOrigins("http://localhost")
@@ -30,10 +42,6 @@ public class SecurityConfig {
 
     @Bean
     UserDetailsService userDetailsService() {
-        UserDetails userDetails = User.withUsername("user")
-                .roles("USER")
-                .build();
-
-        return new InMemoryUserDetailsManager(userDetails);
+        return new UserDetailsServiceImpl(repository);
     }
 }
