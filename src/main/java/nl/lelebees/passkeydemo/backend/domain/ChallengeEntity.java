@@ -1,9 +1,13 @@
 package nl.lelebees.passkeydemo.backend.domain;
 
 import com.webauthn4j.data.client.challenge.Challenge;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import org.hibernate.annotations.Formula;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Random;
 
 @Entity(name = "challenge")
@@ -13,18 +17,16 @@ public class ChallengeEntity implements Challenge {
     @Column(name = "value")
     private byte[] challengeBytes;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User challengedUser;
-
+    @Column(name = "issued_at")
     private Instant issued;
 
+    @Formula("issued_at + (300000 * interval '1 ms')")
+    private Instant expires;
 
     public ChallengeEntity(byte[] challenge) {
         this.challengeBytes = challenge;
         this.issued = Instant.now();
     }
-
 
     protected ChallengeEntity() {
 
@@ -36,13 +38,20 @@ public class ChallengeEntity implements Challenge {
         return new ChallengeEntity(challenge);
     }
 
-    public User getChallengedUser() {
-        return challengedUser;
-    }
-
     @Override
     public byte[] getValue() {
-        return challengeBytes;
+        return Arrays.copyOf(challengeBytes, challengeBytes.length);
     }
 
+    public Instant getIssued() {
+        return issued;
+    }
+
+    public Instant getExpires() {
+        return expires;
+    }
+
+    public boolean isExpired() {
+        return Instant.now().isBefore(expires);
+    }
 }

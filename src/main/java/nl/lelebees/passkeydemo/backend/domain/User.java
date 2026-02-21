@@ -3,7 +3,10 @@ package nl.lelebees.passkeydemo.backend.domain;
 import jakarta.persistence.*;
 import org.hibernate.annotations.NaturalId;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 @Entity
 public class User {
@@ -17,14 +20,14 @@ public class User {
     private String displayName;
     @OneToMany
     private Set<Passkey> passkeys;
-    @OneToMany
-    private Set<ChallengeEntity> issuedChallenges;
+    @OneToOne
+    private ChallengeEntity issuedChallenge;
 
     public User(Email email, String displayName, ChallengeEntity challenge) {
         this.email = email;
         this.displayName= displayName;
         this.passkeys = new HashSet<>();
-        this.issuedChallenges = new HashSet<>(List.of(challenge));
+        this.issuedChallenge = challenge;
     }
 
     protected User() {
@@ -53,5 +56,9 @@ public class User {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public ChallengeEntity getIssuedChallenge() {
+        return issuedChallenge;
     }
 }
