@@ -18,7 +18,7 @@ public class User {
     @NaturalId
     private Email email;
     private String displayName;
-    @OneToMany
+    @OneToMany(mappedBy = "owner")
     private Set<Passkey> passkeys;
     @OneToOne
     private ChallengeEntity issuedChallenge;
@@ -59,6 +59,11 @@ public class User {
     }
 
     public ChallengeEntity getIssuedChallenge() {
+        return issuedChallenge;
+    }
+
+    public ChallengeEntity issueNewChallenge() {
+        issuedChallenge = ChallengeEntity.randomChallenge();
         return issuedChallenge;
     }
 }

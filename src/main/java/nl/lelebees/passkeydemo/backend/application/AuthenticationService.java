@@ -1,14 +1,13 @@
 package nl.lelebees.passkeydemo.backend.application;
 
-import com.webauthn4j.data.PublicKeyCredentialCreationOptions;
-import com.webauthn4j.data.PublicKeyCredentialRpEntity;
-import com.webauthn4j.data.PublicKeyCredentialUserEntity;
-import com.webauthn4j.data.RegistrationData;
+import com.webauthn4j.data.*;
 import nl.lelebees.passkeydemo.backend.application.dto.AuthenticationResponse;
+import nl.lelebees.passkeydemo.backend.application.dto.UserAuthenticationParametersDto;
 import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.application.exception.ChallengeExpiredException;
 import nl.lelebees.passkeydemo.backend.application.exception.EmailAlreadyRegisteredException;
+import nl.lelebees.passkeydemo.backend.application.exception.PasskeyNotFoundException;
 import nl.lelebees.passkeydemo.backend.application.exception.UserNotFoundException;
 import nl.lelebees.passkeydemo.backend.domain.ChallengeEntity;
 import nl.lelebees.passkeydemo.backend.domain.Email;
@@ -21,6 +20,8 @@ import org.springframework.stereotype.Service;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.UUID;
+
+import static com.webauthn4j.data.UserVerificationRequirement.PREFERRED;
 
 @Service
 public class AuthenticationService {
@@ -46,6 +47,16 @@ public class AuthenticationService {
     public AuthenticationResponse registerUser(RegistrationData data, Email email, String userAgent) throws UserNotFoundException, ChallengeExpiredException {
         UserDto user = userService.registerPasskey(data, email, userAgent);
         return new AuthenticationResponse(jwtUtils.generateJwtToken(user.email()));
+    }
+
+    public PublicKeyCredentialRequestOptions startAuthenticationProcess(UserAuthenticationParametersDto authDto) throws IncorrectEmailFormatException, UserNotFoundException {
+        ChallengeEntity challenge = userService.challenge(new Email(authDto.email()));
+        return new PublicKeyCredentialRequestOptions(challenge, 300000L, rpId, null, PREFERRED, null);
+    }
+
+    public AuthenticationResponse authenticateUser(AuthenticationData data) throws PasskeyNotFoundException, ChallengeExpiredException {
+        UserDto userDto = userService.authenticatePasskey(data);
+        return new AuthenticationResponse(jwtUtils.generateJwtToken(userDto.email()));
     }
 
     private static byte[] convertUUIDToByteArray(UUID uuid) {

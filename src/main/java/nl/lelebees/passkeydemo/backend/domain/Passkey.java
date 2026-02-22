@@ -3,9 +3,7 @@ package nl.lelebees.passkeydemo.backend.domain;
 import com.webauthn4j.credential.CredentialRecord;
 import com.webauthn4j.credential.CredentialRecordImpl;
 import com.webauthn4j.data.RegistrationData;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import nl.lelebees.passkeydemo.backend.data.converter.CredentialRecordConverter;
 
 import java.time.LocalDateTime;
@@ -18,6 +16,9 @@ public class Passkey {
     private String createdByUserAgent;
     @Convert(converter = CredentialRecordConverter.class)
     private CredentialRecord credentialRecord;
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private User owner;
 
     public Passkey(byte[] id, LocalDateTime createdAt, String createdByUserAgent, RegistrationData data) {
         this.id = id;
@@ -48,5 +49,9 @@ public class Passkey {
 
     public CredentialRecord getCredentialRecord() {
         return credentialRecord;
+    }
+
+    public User getOwner() {
+        return owner;
     }
 }
