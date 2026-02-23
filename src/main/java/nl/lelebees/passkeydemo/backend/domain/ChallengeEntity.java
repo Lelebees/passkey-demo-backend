@@ -1,6 +1,7 @@
 package nl.lelebees.passkeydemo.backend.domain;
 
 import com.webauthn4j.data.client.challenge.Challenge;
+import com.webauthn4j.util.Base64UrlUtil;
 import jakarta.annotation.Nonnull;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,6 +17,8 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 public class ChallengeEntity implements Challenge {
 
     @Id
+    @Column(name = "session_id")
+    private String sessionId;
     @Column(name = "value")
     private byte[] challengeBytes;
 
@@ -25,10 +28,11 @@ public class ChallengeEntity implements Challenge {
     @Column(name = "expires_at")
     private Instant expires;
 
-    public ChallengeEntity(byte[] challenge) {
+    public ChallengeEntity(byte[] challenge, String sessionId) {
         this.challengeBytes = challenge;
         this.issued = Instant.now();
         this.expires = issued.plus(5, MINUTES);
+        this.sessionId = sessionId;
     }
 
     protected ChallengeEntity() {
@@ -36,9 +40,13 @@ public class ChallengeEntity implements Challenge {
     }
 
     public static ChallengeEntity randomChallenge() {
+        Random r = new Random();
         byte[] challenge = new byte[32];
-        new Random().nextBytes(challenge);
-        return new ChallengeEntity(challenge);
+        r.nextBytes(challenge);
+        byte[] sessionIdBytes = new byte[16];
+        r.nextBytes(sessionIdBytes);
+        String sessionId = Base64UrlUtil.encodeToString(sessionIdBytes);
+        return new ChallengeEntity(challenge, sessionId);
     }
 
     @Override
@@ -57,5 +65,9 @@ public class ChallengeEntity implements Challenge {
 
     public boolean isExpired() {
         return Instant.now().isBefore(expires);
+    }
+
+    public String getSessionId() {
+        return sessionId;
     }
 }

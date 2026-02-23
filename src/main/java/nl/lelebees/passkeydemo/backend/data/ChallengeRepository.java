@@ -1,9 +1,9 @@
 package nl.lelebees.passkeydemo.backend.data;
 
-import nl.lelebees.passkeydemo.backend.domain.Passkey;
+import nl.lelebees.passkeydemo.backend.domain.ChallengeEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface PasskeyRepository extends JpaRepository<Passkey, byte[]> {
+public interface ChallengeRepository extends JpaRepository<ChallengeEntity, String> {
 }

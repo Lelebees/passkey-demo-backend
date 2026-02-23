@@ -18,16 +18,19 @@ public class User {
     @NaturalId
     private Email email;
     private String displayName;
-    @OneToMany(mappedBy = "owner")
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL)
     private Set<Passkey> passkeys;
-    @OneToOne
-    private ChallengeEntity issuedChallenge;
 
-    public User(Email email, String displayName, ChallengeEntity challenge) {
+    public User(Email email, String displayName) {
         this.email = email;
         this.displayName= displayName;
         this.passkeys = new HashSet<>();
-        this.issuedChallenge = challenge;
+    }
+
+    public User(Email email, Passkey passkey) {
+        this.email = email;
+        this.passkeys = new HashSet<>();
+        passkeys.add(passkey);
     }
 
     protected User() {
@@ -56,14 +59,5 @@ public class User {
 
     public String getDisplayName() {
         return displayName;
-    }
-
-    public ChallengeEntity getIssuedChallenge() {
-        return issuedChallenge;
-    }
-
-    public ChallengeEntity issueNewChallenge() {
-        issuedChallenge = ChallengeEntity.randomChallenge();
-        return issuedChallenge;
     }
 }

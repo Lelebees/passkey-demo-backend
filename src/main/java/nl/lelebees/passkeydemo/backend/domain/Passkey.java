@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import nl.lelebees.passkeydemo.backend.data.converter.CredentialRecordConverter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 public class Passkey {
@@ -51,7 +52,11 @@ public class Passkey {
         return credentialRecord;
     }
 
-    public User getOwner() {
-        return owner;
+    public UUID getOwnerId(){
+        return owner.getId();
+    }
+
+    public Email getOwnerEmail() {
+        return owner.getEmail();
     }
 }
