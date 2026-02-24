@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.webauthn4j.data.PublicKeyCredentialHints.*;
@@ -136,5 +137,15 @@ public class AuthenticationService {
         bb.putLong(uuid.getLeastSignificantBits());
         return Base64.getUrlEncoder().withoutPadding().encode(bb.array());
 
+    }
+
+    public void cancelSession(String sessionId) {
+        Optional<ChallengeEntity> challengeOpt = challengeRepository.findById(sessionId);
+        if (challengeOpt.isEmpty()) return;
+        ChallengeEntity challenge = challengeOpt.get();
+        if (challenge.getCreatedUser() != null) {
+            userService.deleteUser(challenge.getCreatedUser());
+        }
+        challengeRepository.delete(challenge);
     }
 }

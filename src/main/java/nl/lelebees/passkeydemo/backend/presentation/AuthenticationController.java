@@ -72,4 +72,10 @@ public class AuthenticationController {
             throw new ResponseStatusException(CONFLICT, "E-mail address already registered. Authenticate or reset passkey instead.");
         }
     }
+
+    @PostMapping("/register/cancel")
+    public ResponseEntity<?> cancelRegister(@RequestHeader("session") String sessionId) {
+        service.cancelSession(sessionId);
+        return ResponseEntity.ok("Canceled registration attempt. Challenge has been revoked.");
+    }
 }
