@@ -1,10 +1,12 @@
 package nl.lelebees.passkeydemo.backend.application;
 
+import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.application.exception.EmailAlreadyRegisteredException;
 import nl.lelebees.passkeydemo.backend.application.exception.UserNotFoundException;
 import nl.lelebees.passkeydemo.backend.data.UserRepository;
 import nl.lelebees.passkeydemo.backend.domain.Email;
+import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
 import nl.lelebees.passkeydemo.backend.domain.Passkey;
 import nl.lelebees.passkeydemo.backend.domain.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,5 +42,23 @@ public class UserService {
             throw new EmailAlreadyRegisteredException("%s is already registered.");
         }
         return UserDto.From(repository.save(new User(email, passkey)));
+    }
+
+    public UserDto createUser(UserCreationParametersDto parameters) throws EmailAlreadyRegisteredException, IncorrectEmailFormatException {
+        Email email = new Email(parameters.email());
+        if (repository.existsUserByEmail(email)) {
+            throw new EmailAlreadyRegisteredException("%s is already registered.");
+        }
+        return UserDto.From(repository.save(new User(email, parameters.displayName())));
+    }
+
+    public UserDto registerPasskey(UUID createdUser, Passkey passkey) throws UserNotFoundException {
+        User user = getFromOptional(repository.findById(createdUser));
+        user.registerKey(passkey);
+        return UserDto.From(repository.save(user));
+    }
+
+    public void deleteUser(UUID userId) {
+        repository.deleteById(userId);
     }
 }

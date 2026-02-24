@@ -1,12 +1,20 @@
 package nl.lelebees.passkeydemo.backend.application.dto;
 
+import com.webauthn4j.data.client.challenge.Challenge;
+import jakarta.annotation.Nonnull;
 import nl.lelebees.passkeydemo.backend.domain.ChallengeEntity;
 
 import java.time.Instant;
 
-public record ChallengeDto(byte[] challenge, Instant expires_at, String sessionId) {
+public record ChallengeDto(byte[] value, Instant expires_at, String session_id) implements Challenge {
 
     public static ChallengeDto From(ChallengeEntity entity) {
         return new ChallengeDto(entity.getValue(), entity.getExpires(), entity.getSessionId());
+    }
+
+    @Nonnull
+    @Override
+    public byte[] getValue() {
+        return value;
     }
 }

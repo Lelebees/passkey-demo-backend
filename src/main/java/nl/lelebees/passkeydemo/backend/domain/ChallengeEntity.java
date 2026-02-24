@@ -3,13 +3,16 @@ package nl.lelebees.passkeydemo.backend.domain;
 import com.webauthn4j.data.client.challenge.Challenge;
 import com.webauthn4j.util.Base64UrlUtil;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.UUID;
 
 import static java.time.temporal.ChronoUnit.MINUTES;
 
@@ -28,8 +31,13 @@ public class ChallengeEntity implements Challenge {
     @Column(name = "expires_at")
     private Instant expires;
 
-    public ChallengeEntity(byte[] challenge, String sessionId) {
+    @Nullable
+    @Column(name = "created_user_id")
+    private UUID createdUser;
+
+    public ChallengeEntity(byte[] challenge, String sessionId, @Nullable UUID createdUser) {
         this.challengeBytes = challenge;
+        this.createdUser = createdUser;
         this.issued = Instant.now();
         this.expires = issued.plus(5, MINUTES);
         this.sessionId = sessionId;
@@ -46,7 +54,17 @@ public class ChallengeEntity implements Challenge {
         byte[] sessionIdBytes = new byte[16];
         r.nextBytes(sessionIdBytes);
         String sessionId = Base64UrlUtil.encodeToString(sessionIdBytes);
-        return new ChallengeEntity(challenge, sessionId);
+        return new ChallengeEntity(challenge, sessionId, null);
+    }
+
+    public static ChallengeEntity randomChallenge(UserDto user) {
+        Random r = new Random();
+        byte[] challenge = new byte[32];
+        r.nextBytes(challenge);
+        byte[] sessionIdBytes = new byte[16];
+        r.nextBytes(sessionIdBytes);
+        String sessionId = Base64UrlUtil.encodeToString(sessionIdBytes);
+        return new ChallengeEntity(challenge, sessionId, user.id());
     }
 
     @Override
@@ -69,5 +87,10 @@ public class ChallengeEntity implements Challenge {
 
     public String getSessionId() {
         return sessionId;
+    }
+
+    @Nullable
+    public UUID getCreatedUser() {
+        return createdUser;
     }
 }

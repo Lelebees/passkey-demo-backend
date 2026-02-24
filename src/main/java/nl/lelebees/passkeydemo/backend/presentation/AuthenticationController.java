@@ -1,16 +1,14 @@
 package nl.lelebees.passkeydemo.backend.presentation;
 
 import com.webauthn4j.data.AuthenticationData;
+import com.webauthn4j.data.PublicKeyCredentialCreationOptions;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.application.AuthenticationService;
 import nl.lelebees.passkeydemo.backend.application.dto.AuthenticationResponse;
 import nl.lelebees.passkeydemo.backend.application.dto.ChallengeDto;
-import nl.lelebees.passkeydemo.backend.application.exception.ChallengeExpiredException;
-import nl.lelebees.passkeydemo.backend.application.exception.EmailAlreadyRegisteredException;
-import nl.lelebees.passkeydemo.backend.application.exception.NoChallengeIssuedException;
-import nl.lelebees.passkeydemo.backend.application.exception.PasskeyNotFoundException;
-import nl.lelebees.passkeydemo.backend.domain.Email;
+import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.application.exception.*;
 import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -36,33 +34,42 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.generateChallenge());
     }
 
-    @PostMapping(value = "/register")
-    public AuthenticationResponse register(@RequestBody RegistrationData data, @RequestParam String email, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
+    @PatchMapping(value = "/register")
+    public ResponseEntity<AuthenticationResponse> register(@RequestBody RegistrationData data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
         try {
-            return service.registerUser(data, new Email(email), userAgent, sessionId);
+            return ResponseEntity.ok(service.registerUser(data, userAgent, sessionId));
         } catch (NoChallengeIssuedException e) {
-            throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
+            throw new ResponseStatusException(NOT_FOUND, "No value found for session %s".formatted(sessionId));
         } catch (ChallengeExpiredException e) {
             throw new ResponseStatusException(GONE, "Challenge issued to %s expired before registration completed.".formatted(sessionId));
-        } catch (IncorrectEmailFormatException e) {
-            throw new ResponseStatusException(UNPROCESSABLE_CONTENT, "%s is not in a valid email format".formatted(email));
-        } catch (EmailAlreadyRegisteredException e) {
-            throw new ResponseStatusException(CONFLICT, "E-mail address already registered. Authenticate or reset passkey instead.");
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(NOT_FOUND, "No created user attached to this session. You should either POST to this URI to create one or attempt to log in instead.");
         }
     }
 
-    @PostMapping(value = "/login")
-    public AuthenticationResponse authenticate(@RequestBody AuthenticationData data, @RequestHeader("session") String sessionId) {
+    @PatchMapping(value = "/login")
+    public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationData data, @RequestHeader("session") String sessionId) {
         try {
-            return service.authenticateUser(data, sessionId);
+            return ResponseEntity.ok(service.authenticateUser(data, sessionId));
         } catch (PasskeyNotFoundException e) {
             throw new ResponseStatusException(NOT_FOUND, "Passkey could not be found.");
         } catch (ChallengeExpiredException e) {
-            throw new ResponseStatusException(GONE, "Issued challenge expired before authentication.");
+            throw new ResponseStatusException(GONE, "Issued value expired before authentication.");
         } catch (VerificationException e) {
             throw new ResponseStatusException(UNAUTHORIZED, "Incorrect signature");
         } catch (NoChallengeIssuedException e) {
-            throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
+            throw new ResponseStatusException(NOT_FOUND, "No value found for session %s".formatted(sessionId));
+        }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<PublicKeyCredentialCreationOptions> getOpts(@RequestBody UserCreationParametersDto params) {
+        try {
+            return ResponseEntity.ok(service.startRegistration(params));
+        } catch (IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(UNPROCESSABLE_CONTENT, "%s is not in a valid email format".formatted(params.email()));
+        } catch (EmailAlreadyRegisteredException e) {
+            throw new ResponseStatusException(CONFLICT, "E-mail address already registered. Authenticate or reset passkey instead.");
         }
     }
 }
