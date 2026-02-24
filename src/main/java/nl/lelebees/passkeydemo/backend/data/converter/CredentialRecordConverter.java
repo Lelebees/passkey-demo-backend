@@ -1,6 +1,5 @@
 package nl.lelebees.passkeydemo.backend.data.converter;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.webauthn4j.converter.AttestedCredentialDataConverter;
 import com.webauthn4j.converter.util.ObjectConverter;
 import com.webauthn4j.credential.CredentialRecord;
@@ -15,7 +14,9 @@ import com.webauthn4j.data.extension.client.RegistrationExtensionClientOutput;
 import com.webauthn4j.util.Base64UrlUtil;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import tools.jackson.core.type.TypeReference;
 
+import java.lang.reflect.Type;
 import java.util.Set;
 @Converter
 public class CredentialRecordConverter implements AttributeConverter<CredentialRecord, String> {
@@ -28,18 +29,18 @@ public class CredentialRecordConverter implements AttributeConverter<CredentialR
         String attestationData = Base64UrlUtil.encodeToString(serializedAttestationData);
 
         AttestationStatementEnvelope envelope = new AttestationStatementEnvelope(credentialRecord.getAttestationStatement());
-        byte[] serializedEnvelope = objectConverter.getCborConverter().writeValueAsBytes(envelope);
+        byte[] serializedEnvelope = objectConverter.getCborMapper().writeValueAsBytes(envelope);
         String envelopeData = Base64UrlUtil.encodeToString(serializedEnvelope);
 
-        String serializedTransports = objectConverter.getJsonConverter().writeValueAsString(credentialRecord.getTransports());
+        String serializedTransports = objectConverter.getJsonMapper().writeValueAsString(credentialRecord.getTransports());
 
         String counter = String.valueOf(credentialRecord.getCounter());
 
-        byte[] serializedAuthenticatorExtensions = objectConverter.getCborConverter().writeValueAsBytes(credentialRecord.getAuthenticatorExtensions());
+        byte[] serializedAuthenticatorExtensions = objectConverter.getCborMapper().writeValueAsBytes(credentialRecord.getAuthenticatorExtensions());
         String authenticatorExtensions = Base64UrlUtil.encodeToString(serializedAuthenticatorExtensions);
 
 
-        String serializedClientExtensions = objectConverter.getJsonConverter().writeValueAsString(credentialRecord.getClientExtensions());
+        String serializedClientExtensions = objectConverter.getJsonMapper().writeValueAsString(credentialRecord.getClientExtensions());
 
         return "%s|%s|%s|%s|%s|%s".formatted(attestationData, envelopeData, serializedTransports, counter, authenticatorExtensions, serializedClientExtensions);
     }
@@ -50,14 +51,19 @@ public class CredentialRecordConverter implements AttributeConverter<CredentialR
 
         AttestedCredentialData deserializedAttestedCredentialData = attestedCredentialDataConverter.convert(Base64UrlUtil.decode(serialized[0]));
 
-        AttestationStatementEnvelope deserializedEnvelope = objectConverter.getCborConverter().readValue(Base64UrlUtil.decode(serialized[1]), AttestationStatementEnvelope.class);
+        AttestationStatementEnvelope deserializedEnvelope = objectConverter.getCborMapper().readValue(Base64UrlUtil.decode(serialized[1]), AttestationStatementEnvelope.class);
         AttestationStatement deserializedAttestationStatement = deserializedEnvelope.getAttestationStatement();
 
-        Set<AuthenticatorTransport> transports = objectConverter.getJsonConverter().readValue(serialized[2], new TypeReference<>() {});
+        Set<AuthenticatorTransport> transports = objectConverter.getJsonMapper().readValue(serialized[2], new TypeReference<>() {
+            @Override
+            public Type getType() {
+                return super.getType();
+            }
+        });
         long counter = Long.decode(serialized[3]);
 
-        AuthenticationExtensionsAuthenticatorOutputs<RegistrationExtensionAuthenticatorOutput> authenticatorExtensions = objectConverter.getCborConverter().readValue(Base64UrlUtil.decode(serialized[4]), new TypeReference<>() {});
-        AuthenticationExtensionsClientOutputs<RegistrationExtensionClientOutput> clientExtensions = objectConverter.getJsonConverter().readValue(serialized[5], new TypeReference<>() {});
+        AuthenticationExtensionsAuthenticatorOutputs<RegistrationExtensionAuthenticatorOutput> authenticatorExtensions = objectConverter.getCborMapper().readValue(Base64UrlUtil.decode(serialized[4]), new TypeReference<>() {});
+        AuthenticationExtensionsClientOutputs<RegistrationExtensionClientOutput> clientExtensions = objectConverter.getJsonMapper().readValue(serialized[5], new TypeReference<>() {});
         return new CredentialRecordImpl(
                 deserializedAttestationStatement,
                 null, null, null,

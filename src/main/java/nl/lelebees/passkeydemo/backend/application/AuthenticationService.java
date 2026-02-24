@@ -3,28 +3,29 @@ package nl.lelebees.passkeydemo.backend.application;
 import com.webauthn4j.WebAuthnManager;
 import com.webauthn4j.data.*;
 import com.webauthn4j.data.client.Origin;
+import com.webauthn4j.data.client.challenge.DefaultChallenge;
 import com.webauthn4j.server.ServerProperty;
 import com.webauthn4j.verifier.exception.UserNotVerifiedException;
 import com.webauthn4j.verifier.exception.VerificationException;
-import nl.lelebees.passkeydemo.backend.application.dto.AuthenticationResponse;
-import nl.lelebees.passkeydemo.backend.application.dto.ChallengeDto;
-import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
-import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
+import nl.lelebees.passkeydemo.backend.application.dto.*;
 import nl.lelebees.passkeydemo.backend.application.exception.*;
 import nl.lelebees.passkeydemo.backend.data.ChallengeRepository;
 import nl.lelebees.passkeydemo.backend.data.PasskeyRepository;
 import nl.lelebees.passkeydemo.backend.domain.ChallengeEntity;
 import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
 import nl.lelebees.passkeydemo.backend.domain.Passkey;
+import nl.lelebees.passkeydemo.backend.domain.PublicKeyCredentialCreationOptionsBuilder;
 import nl.lelebees.passkeydemo.backend.security.jwt.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
+import static com.webauthn4j.data.PublicKeyCredentialHints.*;
 import static com.webauthn4j.data.PublicKeyCredentialType.PUBLIC_KEY;
 import static com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier.*;
 
@@ -112,11 +113,18 @@ public class AuthenticationService {
         return ChallengeDto.From(challengeRepository.save(ChallengeEntity.randomChallenge()));
     }
 
-    public PublicKeyCredentialCreationOptions startRegistration(UserCreationParametersDto params) throws IncorrectEmailFormatException, EmailAlreadyRegisteredException {
+    public PublicKeyCredentialCreationOptionsDto startRegistration(UserCreationParametersDto params) throws IncorrectEmailFormatException, EmailAlreadyRegisteredException {
         UserDto user = userService.createUser(params);
         ChallengeEntity challenge = ChallengeEntity.randomChallenge(user);
         challengeRepository.save(challenge);
-        return new PublicKeyCredentialCreationOptions(new PublicKeyCredentialRpEntity(rpId), new PublicKeyCredentialUserEntity(convertUUIDToByteArray(user.id()), user.email(), user.displayName()), ChallengeDto.From(challenge), supportedAlgorithms);
+        PublicKeyCredentialCreationOptions opts = new PublicKeyCredentialCreationOptionsBuilder(
+                new PublicKeyCredentialRpEntity(rpId),
+                new PublicKeyCredentialUserEntity(convertUUIDToByteArray(user.id()), user.email(), user.displayName()),
+                new DefaultChallenge(challenge.getValue()),
+                supportedAlgorithms)
+                .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
+                .build();
+        return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);
     }
 
     private static byte[] convertUUIDToByteArray(UUID uuid) {
@@ -126,7 +134,7 @@ public class AuthenticationService {
         ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
+        return Base64.getUrlEncoder().withoutPadding().encode(bb.array());
 
     }
 }

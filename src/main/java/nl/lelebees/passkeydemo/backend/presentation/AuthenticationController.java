@@ -1,12 +1,12 @@
 package nl.lelebees.passkeydemo.backend.presentation;
 
 import com.webauthn4j.data.AuthenticationData;
-import com.webauthn4j.data.PublicKeyCredentialCreationOptions;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.application.AuthenticationService;
 import nl.lelebees.passkeydemo.backend.application.dto.AuthenticationResponse;
 import nl.lelebees.passkeydemo.backend.application.dto.ChallengeDto;
+import nl.lelebees.passkeydemo.backend.application.dto.PublicKeyCredentialCreationOptionsDto;
 import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.application.exception.*;
 import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
@@ -63,7 +63,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<PublicKeyCredentialCreationOptions> getOpts(@RequestBody UserCreationParametersDto params) {
+    public ResponseEntity<PublicKeyCredentialCreationOptionsDto> generateOptions(@RequestBody UserCreationParametersDto params) {
         try {
             return ResponseEntity.ok(service.startRegistration(params));
         } catch (IncorrectEmailFormatException e) {
