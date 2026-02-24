@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.webauthn4j.data.AuthenticatorAttachment.*;
 import static com.webauthn4j.data.PublicKeyCredentialHints.*;
 import static com.webauthn4j.data.PublicKeyCredentialType.PUBLIC_KEY;
 import static com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier.*;
@@ -124,6 +125,7 @@ public class AuthenticationService {
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(PLATFORM, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.DISCOURAGED))
                 .build();
         return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);
     }
