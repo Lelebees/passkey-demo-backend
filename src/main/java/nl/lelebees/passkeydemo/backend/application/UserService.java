@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.application;
 
+import com.webauthn4j.data.RegistrationData;
 import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.application.exception.EmailAlreadyRegisteredException;
@@ -53,14 +54,18 @@ public class UserService {
     }
 
     public UserDto registerPasskey(UUID createdUser, Passkey passkey) throws UserNotFoundException {
-        System.out.println("MAKING SHIT");
         User user = getFromOptional(repository.findById(createdUser));
-        user.registerKey(passkey);
-        System.out.println("BAKING SHIT" + passkey);
+        user.registerKey(passkey);;
         return UserDto.From(repository.save(user));
     }
 
     public void deleteUser(UUID userId) {
         repository.deleteById(userId);
+    }
+
+    public UserDto registerPasskey(UUID createdUser, String userAgent, RegistrationData verifiedData) throws UserNotFoundException {
+        User user = getFromOptional(repository.findById(createdUser));
+        user.registerKey(userAgent, verifiedData);
+        return UserDto.From(repository.save(user));
     }
 }

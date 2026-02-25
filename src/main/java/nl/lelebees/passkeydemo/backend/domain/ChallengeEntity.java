@@ -43,6 +43,14 @@ public class ChallengeEntity implements Challenge {
         this.sessionId = sessionId;
     }
 
+    ChallengeEntity(String sessionId, byte[] challengeBytes, Instant issued, Instant expires, @Nullable UUID createdUser) {
+        this.sessionId = sessionId;
+        this.challengeBytes = challengeBytes;
+        this.issued = issued;
+        this.expires = expires;
+        this.createdUser = createdUser;
+    }
+
     protected ChallengeEntity() {
 
     }
@@ -82,7 +90,7 @@ public class ChallengeEntity implements Challenge {
     }
 
     public boolean isExpired() {
-        return Instant.now().isBefore(expires);
+        return Instant.now().isAfter(expires);
     }
 
     public String getSessionId() {

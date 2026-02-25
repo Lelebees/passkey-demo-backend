@@ -1,5 +1,7 @@
 package nl.lelebees.passkeydemo.backend.presentation;
 
+import com.webauthn4j.WebAuthnManager;
+import com.webauthn4j.converter.exception.DataConversionException;
 import com.webauthn4j.data.AuthenticationData;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
@@ -23,10 +25,12 @@ import static org.springframework.http.HttpStatus.*;
 public class AuthenticationController {
 
     private final AuthenticationService service;
+    private final WebAuthnManager webAuthnManager;
 
     @Autowired
     public AuthenticationController(AuthenticationService service) {
         this.service = service;
+        this.webAuthnManager = WebAuthnManager.createNonStrictWebAuthnManager();
     }
 
     @PostMapping("/challenge")
@@ -34,16 +38,20 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.generateChallenge());
     }
 
-    @PatchMapping(value = "/register")
-    public ResponseEntity<AuthenticationResponse> register(@RequestBody RegistrationData data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
+    @PatchMapping(value = "/register", consumes = "application/json")
+    public ResponseEntity<AuthenticationResponse> register(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
         try {
-            return ResponseEntity.ok(service.registerUser(data, userAgent, sessionId));
+            RegistrationData parsedData = webAuthnManager.parseRegistrationResponseJSON(data);
+            return ResponseEntity.ok(service.registerUser(parsedData, userAgent, sessionId));
         } catch (NoChallengeIssuedException e) {
             throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
         } catch (ChallengeExpiredException e) {
             throw new ResponseStatusException(GONE, "Challenge issued to %s expired before registration completed.".formatted(sessionId));
         } catch (UserNotFoundException e) {
             throw new ResponseStatusException(NOT_FOUND, "No created user attached to this session. You should either POST to this URI to create one or attempt to log in instead.");
+        } catch (DataConversionException e) {
+            service.cancelSession(sessionId);
+            throw new ResponseStatusException(BAD_REQUEST, "Could not parse registration data. Registration attempt has been canceled.");
         }
     }
 

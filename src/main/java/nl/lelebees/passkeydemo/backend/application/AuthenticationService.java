@@ -81,7 +81,7 @@ public class AuthenticationService {
             logger.info("Verification failed.", e);
             throw new UserNotVerifiedException("Could not register user", e);
         }
-        UserDto user = userService.registerPasskey(challenge.getCreatedUser(), Passkey.From(userAgent, verifiedData));
+        UserDto user = userService.registerPasskey(challenge.getCreatedUser(), userAgent, verifiedData);
         return new AuthenticationResponse(jwtUtils.generateJwtToken(user.email()));
     }
 
@@ -132,7 +132,7 @@ public class AuthenticationService {
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
-                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, false, ResidentKeyRequirement.PREFERRED, UserVerificationRequirement.PREFERRED))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, false, ResidentKeyRequirement.PREFERRED, UserVerificationRequirement.DISCOURAGED))
                 .attestation(AttestationConveyancePreference.NONE)
                 .build();
         return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);

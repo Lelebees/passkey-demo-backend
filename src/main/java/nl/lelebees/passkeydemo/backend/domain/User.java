@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.domain;
 
+import com.webauthn4j.data.RegistrationData;
 import jakarta.persistence.*;
 import org.hibernate.annotations.NaturalId;
 
@@ -59,5 +60,10 @@ public class User {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public void registerKey(String userAgent, RegistrationData verifiedData) {
+        passkeys.add(Passkey.From(this, userAgent, verifiedData));
+
     }
 }

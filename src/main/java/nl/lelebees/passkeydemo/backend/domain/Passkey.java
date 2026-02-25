@@ -21,19 +21,20 @@ public class Passkey {
     @JoinColumn(name = "owner_id")
     private User owner;
 
-    public Passkey(byte[] id, LocalDateTime createdAt, String createdByUserAgent, RegistrationData data) {
+    public Passkey(User owner, byte[] id, LocalDateTime createdAt, String createdByUserAgent, RegistrationData data) {
         this.id = id;
         this.createdAt = createdAt;
         this.createdByUserAgent = createdByUserAgent;
         this.credentialRecord = new CredentialRecordImpl(data.getAttestationObject(), data.getCollectedClientData(), data.getClientExtensions(), data.getTransports());
+        this.owner = owner;
     }
 
     protected Passkey() {
 
     }
 
-    public static Passkey From(String createdByUserAgent, RegistrationData verifiedData) {
-        return new Passkey(verifiedData.getAttestationObject().getAuthenticatorData().getAttestedCredentialData().getCredentialId(), LocalDateTime.now(), createdByUserAgent, verifiedData);
+    public static Passkey From(User user, String createdByUserAgent, RegistrationData verifiedData) {
+        return new Passkey(user, verifiedData.getAttestationObject().getAuthenticatorData().getAttestedCredentialData().getCredentialId(), LocalDateTime.now(), createdByUserAgent, verifiedData);
     }
 
     public byte[] getId() {
