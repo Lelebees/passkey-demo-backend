@@ -5,6 +5,7 @@ import com.webauthn4j.data.client.challenge.Challenge;
 import com.webauthn4j.data.extension.client.AuthenticationExtensionsClientInputs;
 import com.webauthn4j.data.extension.client.RegistrationExtensionClientInput;
 
+import java.util.Collections;
 import java.util.List;
 
 public class PublicKeyCredentialCreationOptionsBuilder {
@@ -28,6 +29,7 @@ public class PublicKeyCredentialCreationOptionsBuilder {
         this.user = user;
         this.challenge = challenge;
         this.pubKeyCredParams = pubKeyCredParams;
+        this.excludeCredentials = Collections.emptyList();
     }
 
     public PublicKeyCredentialCreationOptions build() {

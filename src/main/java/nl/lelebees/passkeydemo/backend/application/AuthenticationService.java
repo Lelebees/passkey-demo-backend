@@ -16,6 +16,8 @@ import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
 import nl.lelebees.passkeydemo.backend.domain.Passkey;
 import nl.lelebees.passkeydemo.backend.domain.PublicKeyCredentialCreationOptionsBuilder;
 import nl.lelebees.passkeydemo.backend.security.jwt.JwtUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.webauthn4j.data.AuthenticatorAttachment.*;
+import static com.webauthn4j.data.AuthenticatorAttachment.CROSS_PLATFORM;
 import static com.webauthn4j.data.PublicKeyCredentialHints.*;
 import static com.webauthn4j.data.PublicKeyCredentialType.PUBLIC_KEY;
 import static com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier.*;
@@ -34,9 +36,10 @@ import static com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier.
 @Service
 public class AuthenticationService {
 
+    private final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
     private final UserService userService;
     private final JwtUtils jwtUtils;
-    private final String rpId;
+    private final String rpName;
     private final Origin origin;
     private final ChallengeRepository challengeRepository;
     private final PasskeyRepository passkeyRepository;
@@ -44,26 +47,30 @@ public class AuthenticationService {
     private final List<PublicKeyCredentialParameters> supportedAlgorithms;
 
     @Autowired
-    public AuthenticationService(UserService userService, JwtUtils jwtUtils, @Value("${webauthn.rp.id}") String rpId, @Value("${webauthn.origin.url}") String originUrl, ChallengeRepository challengeRepository, PasskeyRepository passkeyRepository) {
+    public AuthenticationService(UserService userService, JwtUtils jwtUtils, @Value("${webauthn.rp.id}") String rpName, @Value("${webauthn.origin.url}") String originUrl, ChallengeRepository challengeRepository, PasskeyRepository passkeyRepository) {
         this.userService = userService;
         this.jwtUtils = jwtUtils;
-        this.rpId = rpId;
+        this.rpName = rpName;
         this.challengeRepository = challengeRepository;
         this.origin = new Origin(originUrl);
         this.passkeyRepository = passkeyRepository;
         this.webAuthnManager = WebAuthnManager.createNonStrictWebAuthnManager();
         this.supportedAlgorithms = List.of(
-                new PublicKeyCredentialParameters(PUBLIC_KEY, EdDSA),
                 new PublicKeyCredentialParameters(PUBLIC_KEY, ES256),
-                new PublicKeyCredentialParameters(PUBLIC_KEY, RS256)
+                new PublicKeyCredentialParameters(PUBLIC_KEY, EdDSA),
+                new PublicKeyCredentialParameters(PUBLIC_KEY, RS256),
+                new PublicKeyCredentialParameters(PUBLIC_KEY, RS512),
+                new PublicKeyCredentialParameters(PUBLIC_KEY, RS384)
         );
     }
 
     public AuthenticationResponse registerUser(RegistrationData data, String userAgent, String sessionId) throws ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException {
         ChallengeEntity challenge = findBySession(sessionId);
+        // If verification fails, user must retry with new challenge
+        challengeRepository.delete(challenge);
         ServerProperty server = ServerProperty.builder()
                 .origin(origin)
-                .rpId(rpId)
+                .rpId(rpName)
                 .challenge(challenge)
                 .build();
         RegistrationParameters parameters = new RegistrationParameters(server, null, false, true);
@@ -71,10 +78,10 @@ public class AuthenticationService {
         try {
             verifiedData = webAuthnManager.verify(data, parameters);
         } catch (VerificationException e) {
+            logger.info("Verification failed.", e);
             throw new UserNotVerifiedException("Could not register user", e);
         }
         UserDto user = userService.registerPasskey(challenge.getCreatedUser(), Passkey.From(userAgent, verifiedData));
-        challengeRepository.delete(challenge);
         return new AuthenticationResponse(jwtUtils.generateJwtToken(user.email()));
     }
 
@@ -83,7 +90,7 @@ public class AuthenticationService {
         Passkey passkey = passkeyRepository.findById(data.getCredentialId()).orElseThrow(PasskeyNotFoundException::new);
         ServerProperty serverProperty = ServerProperty.builder()
                 .origin(origin)
-                .rpId(rpId)
+                .rpId(rpName)
                 .challenge(issuedChallenge)
                 .build();
         AuthenticationParameters authenticationParameters = new AuthenticationParameters(
@@ -120,12 +127,13 @@ public class AuthenticationService {
         ChallengeEntity challenge = ChallengeEntity.randomChallenge(user);
         challengeRepository.save(challenge);
         PublicKeyCredentialCreationOptions opts = new PublicKeyCredentialCreationOptionsBuilder(
-                new PublicKeyCredentialRpEntity(rpId),
+                new PublicKeyCredentialRpEntity(rpName),
                 new PublicKeyCredentialUserEntity(convertUUIDToByteArray(user.id()), user.email(), user.displayName()),
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
-                .authenticatorSelection(new AuthenticatorSelectionCriteria(PLATFORM, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.DISCOURAGED))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, false, ResidentKeyRequirement.PREFERRED, UserVerificationRequirement.PREFERRED))
+                .attestation(AttestationConveyancePreference.NONE)
                 .build();
         return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);
     }

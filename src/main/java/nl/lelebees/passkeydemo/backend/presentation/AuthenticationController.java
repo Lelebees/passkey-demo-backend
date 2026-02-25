@@ -39,7 +39,7 @@ public class AuthenticationController {
         try {
             return ResponseEntity.ok(service.registerUser(data, userAgent, sessionId));
         } catch (NoChallengeIssuedException e) {
-            throw new ResponseStatusException(NOT_FOUND, "No value found for session %s".formatted(sessionId));
+            throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
         } catch (ChallengeExpiredException e) {
             throw new ResponseStatusException(GONE, "Challenge issued to %s expired before registration completed.".formatted(sessionId));
         } catch (UserNotFoundException e) {
@@ -58,7 +58,7 @@ public class AuthenticationController {
         } catch (VerificationException e) {
             throw new ResponseStatusException(UNAUTHORIZED, "Incorrect signature");
         } catch (NoChallengeIssuedException e) {
-            throw new ResponseStatusException(NOT_FOUND, "No value found for session %s".formatted(sessionId));
+            throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
         }
     }
 
@@ -73,8 +73,8 @@ public class AuthenticationController {
         }
     }
 
-    @PostMapping("/register/cancel")
-    public ResponseEntity<?> cancelRegister(@RequestHeader("session") String sessionId) {
+    @DeleteMapping("/register")
+    public ResponseEntity<String> cancelRegister(@RequestHeader("session") String sessionId) {
         service.cancelSession(sessionId);
         return ResponseEntity.ok("Canceled registration attempt. Challenge has been revoked.");
     }

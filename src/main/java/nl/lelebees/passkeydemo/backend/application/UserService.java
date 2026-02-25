@@ -53,8 +53,10 @@ public class UserService {
     }
 
     public UserDto registerPasskey(UUID createdUser, Passkey passkey) throws UserNotFoundException {
+        System.out.println("MAKING SHIT");
         User user = getFromOptional(repository.findById(createdUser));
         user.registerKey(passkey);
+        System.out.println("BAKING SHIT" + passkey);
         return UserDto.From(repository.save(user));
     }
 
