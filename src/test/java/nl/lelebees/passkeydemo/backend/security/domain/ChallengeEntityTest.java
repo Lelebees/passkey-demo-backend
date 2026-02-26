@@ -1,13 +1,13 @@
-package nl.lelebees.passkeydemo.backend.domain;
+package nl.lelebees.passkeydemo.backend.security.domain;
 
-import nl.lelebees.passkeydemo.backend.security.domain.ChallengeEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
 
-import static java.time.temporal.ChronoUnit.*;
+import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
