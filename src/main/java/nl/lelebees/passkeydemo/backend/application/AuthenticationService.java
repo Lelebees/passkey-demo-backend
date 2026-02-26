@@ -23,10 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static com.webauthn4j.data.AuthenticatorAttachment.CROSS_PLATFORM;
 import static com.webauthn4j.data.PublicKeyCredentialHints.*;
@@ -39,7 +36,7 @@ public class AuthenticationService {
     private final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
     private final UserService userService;
     private final JwtUtils jwtUtils;
-    private final String rpName;
+    private final String rpId;
     private final Origin origin;
     private final ChallengeRepository challengeRepository;
     private final PasskeyRepository passkeyRepository;
@@ -47,10 +44,10 @@ public class AuthenticationService {
     private final List<PublicKeyCredentialParameters> supportedAlgorithms;
 
     @Autowired
-    public AuthenticationService(UserService userService, JwtUtils jwtUtils, @Value("${webauthn.rp.id}") String rpName, @Value("${webauthn.origin.url}") String originUrl, ChallengeRepository challengeRepository, PasskeyRepository passkeyRepository) {
+    public AuthenticationService(UserService userService, JwtUtils jwtUtils, @Value("${webauthn.rp.id}") String rpId, @Value("${webauthn.origin.url}") String originUrl, ChallengeRepository challengeRepository, PasskeyRepository passkeyRepository) {
         this.userService = userService;
         this.jwtUtils = jwtUtils;
-        this.rpName = rpName;
+        this.rpId = rpId;
         this.challengeRepository = challengeRepository;
         this.origin = new Origin(originUrl);
         this.passkeyRepository = passkeyRepository;
@@ -64,13 +61,24 @@ public class AuthenticationService {
         );
     }
 
+    private static byte[] convertUUIDToByteArray(UUID uuid) {
+        // Source - https://stackoverflow.com/a/2983319
+        // Posted by aioobe
+        // Retrieved 2026-02-16, License - CC BY-SA 2.5
+        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+        bb.putLong(uuid.getMostSignificantBits());
+        bb.putLong(uuid.getLeastSignificantBits());
+        return Base64.getUrlEncoder().withoutPadding().encode(bb.array());
+
+    }
+
     public AuthenticationResponse registerUser(RegistrationData data, String userAgent, String sessionId) throws ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException {
         ChallengeEntity challenge = findBySession(sessionId);
         // If verification fails, user must retry with new challenge
         challengeRepository.delete(challenge);
         ServerProperty server = ServerProperty.builder()
                 .origin(origin)
-                .rpId(rpName)
+                .rpId(rpId)
                 .challenge(challenge)
                 .build();
         RegistrationParameters parameters = new RegistrationParameters(server, null, false, true);
@@ -90,7 +98,7 @@ public class AuthenticationService {
         Passkey passkey = passkeyRepository.findById(data.getCredentialId()).orElseThrow(PasskeyNotFoundException::new);
         ServerProperty serverProperty = ServerProperty.builder()
                 .origin(origin)
-                .rpId(rpName)
+                .rpId(rpId)
                 .challenge(issuedChallenge)
                 .build();
         AuthenticationParameters authenticationParameters = new AuthenticationParameters(
@@ -127,26 +135,16 @@ public class AuthenticationService {
         ChallengeEntity challenge = ChallengeEntity.randomChallenge(user);
         challengeRepository.save(challenge);
         PublicKeyCredentialCreationOptions opts = new PublicKeyCredentialCreationOptionsBuilder(
-                new PublicKeyCredentialRpEntity(rpName),
+                new PublicKeyCredentialRpEntity(rpId),
                 new PublicKeyCredentialUserEntity(convertUUIDToByteArray(user.id()), user.email(), user.displayName()),
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
                 .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, false, ResidentKeyRequirement.PREFERRED, UserVerificationRequirement.DISCOURAGED))
                 .attestation(AttestationConveyancePreference.NONE)
+                .timeout(challenge.getTimeoutDuration().toMillis())
                 .build();
         return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);
-    }
-
-    private static byte[] convertUUIDToByteArray(UUID uuid) {
-        // Source - https://stackoverflow.com/a/2983319
-        // Posted by aioobe
-        // Retrieved 2026-02-16, License - CC BY-SA 2.5
-        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return Base64.getUrlEncoder().withoutPadding().encode(bb.array());
-
     }
 
     public void cancelSession(String sessionId) {
@@ -157,5 +155,17 @@ public class AuthenticationService {
             userService.deleteUser(challenge.getCreatedUser());
         }
         challengeRepository.delete(challenge);
+    }
+
+    public AuthenticationRequestOptionsDto startAuthentication() {
+        ChallengeEntity challenge = challengeRepository.save(ChallengeEntity.randomChallenge());
+        return new AuthenticationRequestOptionsDto(new PublicKeyCredentialRequestOptions(new DefaultChallenge(
+                challenge.getValue()),
+                challenge.getTimeoutDuration().toMillis(),
+                rpId,
+                Collections.emptyList(),
+                UserVerificationRequirement.PREFERRED,
+                List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY),
+                null), challenge.getSessionId());
     }
 }

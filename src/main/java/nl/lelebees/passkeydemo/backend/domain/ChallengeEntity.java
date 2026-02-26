@@ -9,11 +9,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import nl.lelebees.passkeydemo.backend.application.dto.UserDto;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
 
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 
 @Entity(name = "challenge")
@@ -100,5 +102,9 @@ public class ChallengeEntity implements Challenge {
     @Nullable
     public UUID getCreatedUser() {
         return createdUser;
+    }
+
+    public Duration getTimeoutDuration() {
+       return Duration.of(expires.toEpochMilli() - issued.toEpochMilli(), MILLIS);
     }
 }

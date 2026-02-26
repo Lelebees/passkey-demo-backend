@@ -6,10 +6,7 @@ import com.webauthn4j.data.AuthenticationData;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.application.AuthenticationService;
-import nl.lelebees.passkeydemo.backend.application.dto.AuthenticationResponse;
-import nl.lelebees.passkeydemo.backend.application.dto.ChallengeDto;
-import nl.lelebees.passkeydemo.backend.application.dto.PublicKeyCredentialCreationOptionsDto;
-import nl.lelebees.passkeydemo.backend.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.application.dto.*;
 import nl.lelebees.passkeydemo.backend.application.exception.*;
 import nl.lelebees.passkeydemo.backend.domain.IncorrectEmailFormatException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +35,17 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.generateChallenge());
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<PublicKeyCredentialCreationOptionsDto> generateOptions(@RequestBody UserCreationParametersDto params) {
+        try {
+            return ResponseEntity.ok(service.startRegistration(params));
+        } catch (IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(UNPROCESSABLE_CONTENT, "%s is not in a valid email format".formatted(params.email()));
+        } catch (EmailAlreadyRegisteredException e) {
+            throw new ResponseStatusException(CONFLICT, "E-mail address already registered. Authenticate or reset passkey instead.");
+        }
+    }
+
     @PatchMapping(value = "/register", consumes = "application/json")
     public ResponseEntity<AuthenticationResponse> register(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
         try {
@@ -55,10 +63,22 @@ public class AuthenticationController {
         }
     }
 
+    @DeleteMapping("/register")
+    public ResponseEntity<String> cancelRegister(@RequestHeader("session") String sessionId) {
+        service.cancelSession(sessionId);
+        return ResponseEntity.ok("Canceled registration attempt. Challenge has been revoked.");
+    }
+
+    @PostMapping(value = "/login")
+    public ResponseEntity<AuthenticationRequestOptionsDto> startLogin() {
+        return ResponseEntity.ok(service.startAuthentication());
+    }
+
     @PatchMapping(value = "/login")
-    public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationData data, @RequestHeader("session") String sessionId) {
+    public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody String data, @RequestHeader("session") String sessionId, @RequestHeader("User-Agent") String userAgent /* TODO: Log login attempts*/) {
         try {
-            return ResponseEntity.ok(service.authenticateUser(data, sessionId));
+            AuthenticationData authenticationData = webAuthnManager.parseAuthenticationResponseJSON(data);
+            return ResponseEntity.ok(service.authenticateUser(authenticationData, sessionId));
         } catch (PasskeyNotFoundException e) {
             throw new ResponseStatusException(NOT_FOUND, "Passkey could not be found.");
         } catch (ChallengeExpiredException e) {
@@ -67,23 +87,14 @@ public class AuthenticationController {
             throw new ResponseStatusException(UNAUTHORIZED, "Incorrect signature");
         } catch (NoChallengeIssuedException e) {
             throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
+        } catch (DataConversionException e) {
+            throw new ResponseStatusException(BAD_REQUEST, "Could not parse authentication response.");
         }
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<PublicKeyCredentialCreationOptionsDto> generateOptions(@RequestBody UserCreationParametersDto params) {
-        try {
-            return ResponseEntity.ok(service.startRegistration(params));
-        } catch (IncorrectEmailFormatException e) {
-            throw new ResponseStatusException(UNPROCESSABLE_CONTENT, "%s is not in a valid email format".formatted(params.email()));
-        } catch (EmailAlreadyRegisteredException e) {
-            throw new ResponseStatusException(CONFLICT, "E-mail address already registered. Authenticate or reset passkey instead.");
-        }
-    }
-
-    @DeleteMapping("/register")
-    public ResponseEntity<String> cancelRegister(@RequestHeader("session") String sessionId) {
+    @DeleteMapping(value = "/login")
+    public ResponseEntity<String> cancelLogin(@RequestHeader("session") String sessionId) {
         service.cancelSession(sessionId);
-        return ResponseEntity.ok("Canceled registration attempt. Challenge has been revoked.");
+        return ResponseEntity.ok("Canceled login attempt. Challenge has been revoked.");
     }
 }
