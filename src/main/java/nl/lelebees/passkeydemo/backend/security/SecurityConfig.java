@@ -1,6 +1,6 @@
 package nl.lelebees.passkeydemo.backend.security;
 
-import nl.lelebees.passkeydemo.backend.security.jwt.JwtFilter;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.domain;
 
+import nl.lelebees.passkeydemo.backend.security.domain.ChallengeEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

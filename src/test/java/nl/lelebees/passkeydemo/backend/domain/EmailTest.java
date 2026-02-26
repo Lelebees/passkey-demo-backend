@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.domain;
 
+import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
