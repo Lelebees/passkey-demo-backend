@@ -7,21 +7,26 @@ import com.webauthn4j.data.client.challenge.DefaultChallenge;
 import com.webauthn4j.server.ServerProperty;
 import com.webauthn4j.verifier.exception.UserNotVerifiedException;
 import com.webauthn4j.verifier.exception.VerificationException;
-import nl.lelebees.passkeydemo.backend.user.application.UserService;
-import nl.lelebees.passkeydemo.backend.security.application.dto.*;
-import nl.lelebees.passkeydemo.backend.security.application.exception.ChallengeExpiredException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.EmailAlreadyRegisteredException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.NoChallengeIssuedException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.PasskeyNotFoundException;
+import nl.lelebees.passkeydemo.backend.security.application.dto.AuthenticationRequestOptionsDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.ChallengeDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.PublicKeyCredentialCreationOptionsDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshResponseDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
+import nl.lelebees.passkeydemo.backend.security.application.exception.*;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUtils;
 import nl.lelebees.passkeydemo.backend.security.data.ChallengeRepository;
-import nl.lelebees.passkeydemo.backend.user.data.PasskeyRepository;
 import nl.lelebees.passkeydemo.backend.security.domain.ChallengeEntity;
+import nl.lelebees.passkeydemo.backend.security.domain.PublicKeyCredentialCreationOptionsBuilder;
+import nl.lelebees.passkeydemo.backend.user.application.UserService;
+import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
+import nl.lelebees.passkeydemo.backend.user.application.dto.UserOverviewDto;
+import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
+import nl.lelebees.passkeydemo.backend.user.data.PasskeyRepository;
+import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
 import nl.lelebees.passkeydemo.backend.user.domain.Passkey;
-import nl.lelebees.passkeydemo.backend.security.domain.PublicKeyCredentialCreationOptionsBuilder;
-import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUtils;
-import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
-import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,7 +83,7 @@ public class AuthenticationService {
 
     }
 
-    public AuthenticationResponse registerUser(RegistrationData data, String userAgent, String sessionId) throws ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException {
+    public AuthenticationResponseDto registerUser(RegistrationData data, String userAgent, String sessionId) throws ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException, IncorrectEmailFormatException {
         ChallengeEntity challenge = findBySession(sessionId);
         // If verification fails, user must retry with new challenge
         challengeRepository.delete(challenge);
@@ -96,10 +101,10 @@ public class AuthenticationService {
             throw new UserNotVerifiedException("Could not register user", e);
         }
         UserDto user = userService.registerPasskey(challenge.getCreatedUser(), userAgent, verifiedData);
-        return new AuthenticationResponse(jwtUtils.generateJwtToken(user.email()));
+        return AuthenticationResponseDto.from(jwtUtils, user.email());
     }
 
-    public AuthenticationResponse authenticateUser(AuthenticationData data, String sessionId) throws PasskeyNotFoundException, ChallengeExpiredException, NoChallengeIssuedException {
+    public AuthenticationResponseDto authenticateUser(AuthenticationData data, String sessionId) throws PasskeyNotFoundException, ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException, IncorrectEmailFormatException {
         ChallengeEntity issuedChallenge = findBySession(sessionId);
         Passkey passkey = passkeyRepository.findById(data.getCredentialId()).orElseThrow(PasskeyNotFoundException::new);
         ServerProperty serverProperty = ServerProperty.builder()
@@ -117,7 +122,7 @@ public class AuthenticationService {
         passkey.getCredentialRecord().setCounter(webAuthnManager.verify(data, authenticationParameters).getAuthenticatorData().getSignCount());
         passkeyRepository.save(passkey);
         challengeRepository.delete(issuedChallenge);
-        return new AuthenticationResponse(jwtUtils.generateJwtToken(passkey.getOwnerEmail().toString()));
+        return AuthenticationResponseDto.from(jwtUtils, passkey.getOwnerEmail().toString());
     }
 
     private ChallengeEntity findBySession(String sessionId) throws NoChallengeIssuedException, ChallengeExpiredException {
@@ -137,7 +142,7 @@ public class AuthenticationService {
     }
 
     public PublicKeyCredentialCreationOptionsDto startRegistration(UserCreationParametersDto params) throws IncorrectEmailFormatException, EmailAlreadyRegisteredException {
-        UserDto user = userService.createUser(params);
+        UserOverviewDto user = userService.createUser(params);
         ChallengeEntity challenge = ChallengeEntity.randomChallenge(user);
         challengeRepository.save(challenge);
         PublicKeyCredentialCreationOptions opts = new PublicKeyCredentialCreationOptionsBuilder(
@@ -173,5 +178,16 @@ public class AuthenticationService {
                 UserVerificationRequirement.PREFERRED,
                 List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY),
                 null), challenge.getSessionId());
+    }
+
+    public AuthRefreshResponseDto refreshAccessToken(JwtToken refreshToken) throws InvalidTokenException, IncorrectEmailFormatException, UserNotFoundException {
+        if (!jwtUtils.isValidRefreshToken(refreshToken)) {
+            throw new InvalidTokenException("Refresh token is invalid or expired");
+        }
+        if (userService.isRefreshTokenRetracted(new Email(jwtUtils.extractUsername(refreshToken)), refreshToken))
+        {
+            throw new InvalidTokenException("Refresh token has been retracted");
+        }
+        return new AuthRefreshResponseDto(jwtUtils.generateAccessToken(refreshToken));
     }
 }

@@ -6,13 +6,16 @@ import com.webauthn4j.data.AuthenticationData;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.security.application.AuthenticationService;
-import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
-import nl.lelebees.passkeydemo.backend.security.application.dto.*;
-import nl.lelebees.passkeydemo.backend.security.application.exception.ChallengeExpiredException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.EmailAlreadyRegisteredException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.NoChallengeIssuedException;
-import nl.lelebees.passkeydemo.backend.security.application.exception.PasskeyNotFoundException;
+import nl.lelebees.passkeydemo.backend.security.application.dto.AuthenticationRequestOptionsDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.ChallengeDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.PublicKeyCredentialCreationOptionsDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshResponseDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
+import nl.lelebees.passkeydemo.backend.security.application.exception.*;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
+import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -51,10 +54,10 @@ public class AuthenticationController {
     }
 
     @PatchMapping(value = "/register", consumes = "application/json")
-    public ResponseEntity<AuthenticationResponse> register(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
+    public ResponseEntity<AuthenticationResponseDto> register(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @RequestHeader("session") String sessionId) {
         try {
             RegistrationData parsedData = webAuthnManager.parseRegistrationResponseJSON(data);
-            return ResponseEntity.ok(service.registerUser(parsedData, userAgent, sessionId));
+            return ResponseEntity.status(CREATED).body(service.registerUser(parsedData, userAgent, sessionId));
         } catch (NoChallengeIssuedException e) {
             throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
         } catch (ChallengeExpiredException e) {
@@ -64,6 +67,8 @@ public class AuthenticationController {
         } catch (DataConversionException e) {
             service.cancelSession(sessionId);
             throw new ResponseStatusException(BAD_REQUEST, "Could not parse registration data. Registration attempt has been canceled.");
+        } catch (IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(MULTI_STATUS, "200 OK: Registration succeeded.\n500 INTERNAL SERVER ERROR: Access and refresh tokens could not be minted due to an e-mail formatting error. If you encounter this error, contact the server administrator. You may attempt logging in but you will probably find the same error occurring.");
         }
     }
 
@@ -73,13 +78,13 @@ public class AuthenticationController {
         return ResponseEntity.ok("Canceled registration attempt. Challenge has been revoked.");
     }
 
-    @PostMapping(value = "/login")
+    @PostMapping("/login")
     public ResponseEntity<AuthenticationRequestOptionsDto> startLogin() {
         return ResponseEntity.ok(service.startAuthentication());
     }
 
-    @PatchMapping(value = "/login")
-    public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody String data, @RequestHeader("session") String sessionId, @RequestHeader("User-Agent") String userAgent /* TODO: Log login attempts*/) {
+    @PatchMapping(value = "/login", consumes = "application/json")
+    public ResponseEntity<AuthenticationResponseDto> authenticate(@RequestBody String data, @RequestHeader("session") String sessionId, @RequestHeader("User-Agent") String userAgent /* TODO: Log login attempts*/) {
         try {
             AuthenticationData authenticationData = webAuthnManager.parseAuthenticationResponseJSON(data);
             return ResponseEntity.ok(service.authenticateUser(authenticationData, sessionId));
@@ -93,12 +98,25 @@ public class AuthenticationController {
             throw new ResponseStatusException(NOT_FOUND, "No challenge found for session %s".formatted(sessionId));
         } catch (DataConversionException e) {
             throw new ResponseStatusException(BAD_REQUEST, "Could not parse authentication response.");
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Passkey is registered but has no owner.");
+        } catch (IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Access and refresh tokens could not be minted due to an e-mail formatting error. If you encounter this error, contact the server administrator.");
         }
     }
 
-    @DeleteMapping(value = "/login")
+    @DeleteMapping("/login")
     public ResponseEntity<String> cancelLogin(@RequestHeader("session") String sessionId) {
         service.cancelSession(sessionId);
         return ResponseEntity.ok("Canceled login attempt. Challenge has been revoked.");
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthRefreshResponseDto> refreshAccessToken(@RequestBody JwtToken refreshToken) {
+        try {
+            return ResponseEntity.ok(service.refreshAccessToken(refreshToken));
+        } catch (InvalidTokenException | UserNotFoundException | IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Refresh token not valid.");
+        }
     }
 }

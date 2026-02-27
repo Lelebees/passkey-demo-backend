@@ -7,7 +7,7 @@ import jakarta.annotation.Nullable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
+import nl.lelebees.passkeydemo.backend.user.application.dto.UserOverviewDto;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,7 +67,7 @@ public class ChallengeEntity implements Challenge {
         return new ChallengeEntity(challenge, sessionId, null);
     }
 
-    public static ChallengeEntity randomChallenge(UserDto user) {
+    public static ChallengeEntity randomChallenge(UserOverviewDto user) {
         Random r = new Random();
         byte[] challenge = new byte[32];
         r.nextBytes(challenge);
