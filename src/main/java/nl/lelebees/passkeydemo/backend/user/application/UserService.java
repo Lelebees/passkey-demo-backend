@@ -81,4 +81,10 @@ public class UserService {
         return !getFromOptional(repository.findUserByEmail(email))
                 .getAcceptedRefreshTokens().contains(refreshToken.toString());
     }
+
+    public void revokeRefreshTokens(Email email) throws UserNotFoundException {
+        User user = getFromOptional(repository.findUserByEmail(email));
+        user.revokeRefreshTokens();
+        repository.save(user);
+    }
 }

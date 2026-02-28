@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.security.application.jwt;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
@@ -26,23 +28,26 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws IOException, ServletException {
+        try {
+            String header = request.getHeader("Authorization");
 
-        String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) {
+                JwtToken token = new JwtToken(header.substring(7));
+                String username = jwtUtil.extractUsername(token);
 
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
-            String username = jwtUtil.extractUsername(token);
+                if (username != null && jwtUtil.isValidAccessToken(token)) {
+                    UserDetails user = userDetailsService.loadUserByUsername(username);
 
-            if (username != null && jwtUtil.isValid(token)) {
-                UserDetails user = userDetailsService.loadUserByUsername(username);
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
 
-                UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             }
-        }
 
-        chain.doFilter(request, response);
+            chain.doFilter(request, response);
+        } catch (ExpiredJwtException e) {
+            chain.doFilter(request, response);
+        }
     }
 }

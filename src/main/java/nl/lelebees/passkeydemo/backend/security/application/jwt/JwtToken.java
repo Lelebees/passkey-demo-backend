@@ -10,7 +10,7 @@ import java.util.Date;
 
 public record JwtToken(String token) {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtToken.class);
+    private static final Logger logger = LoggerFactory.getLogger(JwtToken.class);
 
     public static JwtToken fromUsername(String username, SecretKey signingKey, long jwtExpirationMs) {
         return new JwtToken(Jwts.builder()
@@ -28,11 +28,11 @@ public record JwtToken(String token) {
 
     public boolean isValid(SecretKey signingKey) {
         try {
-            log.info(token);
+            logger.debug(token);
             Jwts.parser().decryptWith(signingKey).verifyWith(signingKey).build().parseSignedClaims(token);
             return true;
         } catch (Exception e) {
-            log.error("Caught exception in key decryption: ", e);
+            logger.error("Caught exception in key decryption: ", e);
             return false;
         }
     }

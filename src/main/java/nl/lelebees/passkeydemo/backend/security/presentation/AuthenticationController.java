@@ -14,10 +14,15 @@ import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshR
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.UserDetailsImpl;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
+import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,6 +33,7 @@ import static org.springframework.http.HttpStatus.*;
 @RequestMapping("authentication/")
 public class AuthenticationController {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);
     private final AuthenticationService service;
     private final WebAuthnManager webAuthnManager;
 
@@ -117,6 +123,19 @@ public class AuthenticationController {
             return ResponseEntity.ok(service.refreshAccessToken(refreshToken));
         } catch (InvalidTokenException | UserNotFoundException | IncorrectEmailFormatException e) {
             throw new ResponseStatusException(UNAUTHORIZED, "Refresh token not valid.");
+        }
+    }
+
+    @DeleteMapping("/refresh")
+    public ResponseEntity<String> signOut(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            service.signOut(new Email(userDetails.getUsername()));
+            return ResponseEntity.ok("Okay. Good-bye!");
+        } catch (UserNotFoundException e) {
+            log.warn("Access token valid but user not found.", e);
+            throw new ResponseStatusException(NOT_FOUND, "User not found, but access token was valid. You do not need to do anything else.");
+        } catch (IncorrectEmailFormatException e) {
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Valid access token contained invalid e-mail format. Contact server administrator.");
         }
     }
 }

@@ -80,4 +80,8 @@ public class User {
     public List<String> getAcceptedRefreshTokens() {
         return Collections.unmodifiableList(acceptedRefreshTokens);
     }
+
+    public void revokeRefreshTokens() {
+        this.acceptedRefreshTokens = new ArrayList<>();
+    }
 }

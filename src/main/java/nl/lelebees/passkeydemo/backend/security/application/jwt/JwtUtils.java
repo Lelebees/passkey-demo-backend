@@ -59,7 +59,7 @@ public class JwtUtils {
     }
 
     public String extractUsername(String token) {
-        return Jwts.parser().decryptWith(getSigningKey(accessTokenSecret)).build()
+        return Jwts.parser().decryptWith(getSigningKey(accessTokenSecret)).verifyWith(getSigningKey(accessTokenSecret)).build()
                 .parseSignedClaims(token).getPayload().getSubject();
     }
 
@@ -76,16 +76,6 @@ public class JwtUtils {
             return true;
         }
         return token.isValid(getSigningKey(refreshTokenSecret));
-    }
-
-    public boolean isValid (String token) {
-        try {
-            Jwts.parser().decryptWith(getSigningKey(accessTokenSecret)).build()
-                    .parseSignedClaims(token);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     public boolean isValidRefreshToken(JwtToken token) {
