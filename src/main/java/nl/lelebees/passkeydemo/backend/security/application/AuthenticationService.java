@@ -191,7 +191,7 @@ public class AuthenticationService {
         return new AuthRefreshResponseDto(jwtUtils.generateAccessToken(refreshToken));
     }
 
-    public void signOut(Email email) throws UserNotFoundException {
-        userService.revokeRefreshTokens(email);
+    public void signOut(UUID id) throws UserNotFoundException {
+        userService.revokeRefreshTokens(id);
     }
 }

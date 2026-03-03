@@ -1,5 +1,6 @@
 package nl.lelebees.passkeydemo.backend.security.application.jwt;
 
+import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import nl.lelebees.passkeydemo.backend.user.domain.User;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
@@ -8,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 public class UserDetailsImpl implements UserDetails {
 
@@ -50,5 +52,21 @@ public class UserDetailsImpl implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public Email getEmail() {
+        return user.getEmail();
+    }
+
+    public String getDisplayName() {
+        return user.getDisplayName();
+    }
+
+    public UUID getId() {
+        return user.getId();
+    }
+
+    public User getUser() {
+        return user;
     }
 }

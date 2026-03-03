@@ -5,11 +5,14 @@ import com.webauthn4j.data.RegistrationData;
 import jakarta.persistence.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
 import org.hibernate.annotations.NaturalId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 @Entity(name = "users")
 public class User {
+    private static final Logger log = LoggerFactory.getLogger(User.class);
     @Id
     @GeneratedValue
     private UUID id;
@@ -25,7 +28,7 @@ public class User {
 
     public User(Email email, String displayName) {
         this.email = email;
-        this.displayName= displayName;
+        this.displayName = displayName;
         this.passkeys = new HashSet<>();
         this.acceptedRefreshTokens = new ArrayList<>();
     }
@@ -49,6 +52,10 @@ public class User {
         return email;
     }
 
+    public void setEmail(String email) throws IncorrectEmailFormatException {
+        this.email = new Email(email);
+    }
+
     public void registerKey(Passkey passkey) {
         passkeys.add(passkey);
     }
@@ -65,13 +72,16 @@ public class User {
         return displayName;
     }
 
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
     public void registerKey(String userAgent, RegistrationData verifiedData, Capabilities parsedUserAgent) {
         passkeys.add(Passkey.From(this, userAgent, verifiedData, parsedUserAgent));
     }
 
     public void registerRefreshToken(JwtToken token) {
-        if (acceptedRefreshTokens == null)
-        {
+        if (acceptedRefreshTokens == null) {
             acceptedRefreshTokens = new ArrayList<>();
         }
         acceptedRefreshTokens.add(token.toString());

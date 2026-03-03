@@ -7,6 +7,7 @@ import com.webauthn4j.data.RegistrationData;
 import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.EmailAlreadyRegisteredException;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
+import nl.lelebees.passkeydemo.backend.user.application.dto.UserDetailsUpdateDto;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserOverviewDto;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
@@ -82,9 +83,15 @@ public class UserService {
                 .getAcceptedRefreshTokens().contains(refreshToken.toString());
     }
 
-    public void revokeRefreshTokens(Email email) throws UserNotFoundException {
-        User user = getFromOptional(repository.findUserByEmail(email));
+    public void revokeRefreshTokens(UUID id) throws UserNotFoundException {
+        User user = getFromOptional(repository.findById(id));
         user.revokeRefreshTokens();
         repository.save(user);
+    }
+
+    public UserOverviewDto updateDetails(User user, UserDetailsUpdateDto newDetails) throws IncorrectEmailFormatException {
+        user.setEmail(newDetails.email());
+        user.setDisplayName(newDetails.displayName());
+        return UserOverviewDto.from(repository.save(user));
     }
 }
