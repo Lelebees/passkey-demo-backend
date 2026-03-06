@@ -151,7 +151,7 @@ public class AuthenticationService {
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
-                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, false, ResidentKeyRequirement.PREFERRED, UserVerificationRequirement.DISCOURAGED))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.DISCOURAGED))
                 .attestation(AttestationConveyancePreference.NONE)
                 .timeout(challenge.getTimeoutDuration().toMillis())
                 .build();

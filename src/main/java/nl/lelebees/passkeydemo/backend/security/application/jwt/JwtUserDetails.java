@@ -11,11 +11,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-public class UserDetailsImpl implements UserDetails {
+public class JwtUserDetails implements UserDetails {
 
     private final User user;
 
-    public UserDetailsImpl(User user) {
+    public JwtUserDetails(User user) {
         this.user = user;
     }
 

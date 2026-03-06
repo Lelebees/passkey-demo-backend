@@ -14,7 +14,7 @@ import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshR
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
-import nl.lelebees.passkeydemo.backend.security.application.jwt.UserDetailsImpl;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUserDetails;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
 import org.slf4j.Logger;
@@ -116,6 +116,12 @@ public class AuthenticationController {
         return ResponseEntity.ok("Canceled login attempt. Challenge has been revoked.");
     }
 
+    @PostMapping("/add-key")
+    public ResponseEntity<?> addKey(@AuthenticationPrincipal JwtUserDetails userDetails) {
+        return ResponseEntity.ok(1);
+    }
+
+
     @PostMapping("/refresh")
     public ResponseEntity<AuthRefreshResponseDto> refreshAccessToken(@RequestBody JwtToken refreshToken) {
         try {
@@ -126,7 +132,7 @@ public class AuthenticationController {
     }
 
     @DeleteMapping("/refresh")
-    public ResponseEntity<String> signOut(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<String> signOut(@AuthenticationPrincipal JwtUserDetails userDetails) {
         try {
             service.signOut(userDetails.getId());
             return ResponseEntity.ok("Okay. Good-bye!");

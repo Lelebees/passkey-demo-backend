@@ -27,7 +27,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             if (userOptional.isEmpty()) {
                 throw new UsernameNotFoundException("User known as %s not found.");
             }
-            return new UserDetailsImpl(userOptional.get());
+            return new JwtUserDetails(userOptional.get());
         } catch (IncorrectEmailFormatException e) {
             throw new UsernameNotFoundException("User known as %s not found, invalid email format".formatted(username), e);
         }

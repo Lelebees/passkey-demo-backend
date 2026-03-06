@@ -1,6 +1,6 @@
 package nl.lelebees.passkeydemo.backend.user.presentation;
 
-import nl.lelebees.passkeydemo.backend.security.application.jwt.UserDetailsImpl;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUserDetails;
 import nl.lelebees.passkeydemo.backend.user.application.UserService;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDetailsUpdateDto;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
@@ -29,7 +29,7 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserDto> getMe(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<UserDto> getMe(@AuthenticationPrincipal JwtUserDetails userDetails) {
         try {
             return ResponseEntity.ok(service.getUserById(userDetails.getId()));
         } catch (UserNotFoundException e) {
@@ -38,7 +38,7 @@ public class UserController {
     }
 
     @PutMapping("/me")
-    public ResponseEntity<UserOverviewDto> updateDetails(@AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody UserDetailsUpdateDto newDetails) {
+    public ResponseEntity<UserOverviewDto> updateDetails(@AuthenticationPrincipal JwtUserDetails userDetails, @RequestBody UserDetailsUpdateDto newDetails) {
         try {
             return ResponseEntity.ok(service.updateDetails(userDetails.getUser(), newDetails));
         } catch (IncorrectEmailFormatException e) {
