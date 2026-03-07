@@ -6,15 +6,13 @@ import com.webauthn4j.data.AuthenticationData;
 import com.webauthn4j.data.RegistrationData;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.security.application.AuthenticationService;
-import nl.lelebees.passkeydemo.backend.security.application.dto.AuthenticationRequestOptionsDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.ChallengeDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.PublicKeyCredentialCreationOptionsDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.*;
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUserDetails;
+import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
 import org.slf4j.Logger;
@@ -96,7 +94,7 @@ public class AuthenticationController {
         } catch (PasskeyNotFoundException e) {
             throw new ResponseStatusException(NOT_FOUND, "Passkey could not be found.");
         } catch (ChallengeExpiredException e) {
-            throw new ResponseStatusException(GONE, "Issued value expired before authentication.");
+            throw new ResponseStatusException(GONE, "Issued challenge expired before authentication.");
         } catch (VerificationException e) {
             throw new ResponseStatusException(UNAUTHORIZED, "Incorrect signature");
         } catch (NoChallengeIssuedException e) {
@@ -114,11 +112,6 @@ public class AuthenticationController {
     public ResponseEntity<String> cancelLogin(@RequestHeader("session") String sessionId) {
         service.cancelSession(sessionId);
         return ResponseEntity.ok("Canceled login attempt. Challenge has been revoked.");
-    }
-
-    @PostMapping("/add-key")
-    public ResponseEntity<?> addKey(@AuthenticationPrincipal JwtUserDetails userDetails) {
-        return ResponseEntity.ok(1);
     }
 
 
@@ -140,5 +133,31 @@ public class AuthenticationController {
             log.warn("Access token valid but user not found.", e);
             throw new ResponseStatusException(NOT_FOUND, "User not found, but access token was valid. You do not need to do anything else.");
         }
+    }
+
+    public ResponseEntity<PublicKeyCredentialCreationOptionsDto> startAddPasskey(@AuthenticationPrincipal JwtUserDetails userDetails, @RequestBody DesiredMediumDto desiredMedium) {
+        try {
+            return ResponseEntity.ok(service.startPasskeyAdd(desiredMedium, userDetails));
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "You dont exist");
+        }
+    }
+
+    public ResponseEntity<UserDto> addPasskey(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @AuthenticationPrincipal JwtUserDetails userDetails) {
+        RegistrationData parsedData = webAuthnManager.parseRegistrationResponseJSON(data);
+        try {
+            return ResponseEntity.ok(service.addPasskey(parsedData, userAgent, userDetails.getId()));
+        } catch (ChallengeExpiredException e) {
+            throw new ResponseStatusException(GONE, "Issued challenge expired before passkey was registered.");
+        } catch (NoChallengeIssuedException e) {
+            throw new ResponseStatusException(NOT_FOUND, "No challenge found for %s".formatted(userDetails.getUsername()));
+        } catch (UserNotFoundException e) {
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "%s (%s) could not be found but had a valid access token".formatted(userDetails.getUsername(), userDetails.getId()));
+        }
+    }
+
+    public ResponseEntity<String> cancelAdd(@AuthenticationPrincipal JwtUserDetails userDetails) {
+        service.cancelPasskeyAdd(userDetails.getId());
+        return ResponseEntity.ok("Canceled passkey add operation.");
     }
 }

@@ -58,23 +58,21 @@ public class ChallengeEntity implements Challenge {
     }
 
     public static ChallengeEntity randomChallenge() {
-        Random r = new Random();
-        byte[] challenge = new byte[32];
-        r.nextBytes(challenge);
-        byte[] sessionIdBytes = new byte[16];
-        r.nextBytes(sessionIdBytes);
-        String sessionId = Base64UrlUtil.encodeToString(sessionIdBytes);
-        return new ChallengeEntity(challenge, sessionId, null);
+        return randomChallenge((UUID) null);
     }
 
     public static ChallengeEntity randomChallenge(UserOverviewDto user) {
+        return randomChallenge(user.id());
+    }
+
+    public static ChallengeEntity randomChallenge(UUID userId) {
         Random r = new Random();
         byte[] challenge = new byte[32];
         r.nextBytes(challenge);
         byte[] sessionIdBytes = new byte[16];
         r.nextBytes(sessionIdBytes);
         String sessionId = Base64UrlUtil.encodeToString(sessionIdBytes);
-        return new ChallengeEntity(challenge, sessionId, user.id());
+        return new ChallengeEntity(challenge, sessionId, userId);
     }
 
     @Override

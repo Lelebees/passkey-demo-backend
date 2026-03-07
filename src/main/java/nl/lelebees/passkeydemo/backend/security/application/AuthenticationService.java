@@ -7,14 +7,12 @@ import com.webauthn4j.data.client.challenge.DefaultChallenge;
 import com.webauthn4j.server.ServerProperty;
 import com.webauthn4j.verifier.exception.UserNotVerifiedException;
 import com.webauthn4j.verifier.exception.VerificationException;
-import nl.lelebees.passkeydemo.backend.security.application.dto.AuthenticationRequestOptionsDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.ChallengeDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.PublicKeyCredentialCreationOptionsDto;
-import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
+import nl.lelebees.passkeydemo.backend.security.application.dto.*;
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthRefreshResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.dto.jwt.AuthenticationResponseDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
+import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUserDetails;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUtils;
 import nl.lelebees.passkeydemo.backend.security.data.ChallengeRepository;
 import nl.lelebees.passkeydemo.backend.security.domain.ChallengeEntity;
@@ -36,7 +34,6 @@ import org.springframework.stereotype.Service;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-import static com.webauthn4j.data.AuthenticatorAttachment.CROSS_PLATFORM;
 import static com.webauthn4j.data.PublicKeyCredentialHints.*;
 import static com.webauthn4j.data.PublicKeyCredentialType.PUBLIC_KEY;
 import static com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier.*;
@@ -151,7 +148,7 @@ public class AuthenticationService {
                 new DefaultChallenge(challenge.getValue()),
                 supportedAlgorithms)
                 .hints(List.of(CLIENT_DEVICE, HYBRID, SECURITY_KEY))
-                .authenticatorSelection(new AuthenticatorSelectionCriteria(CROSS_PLATFORM, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.DISCOURAGED))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(null, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.DISCOURAGED))
                 .attestation(AttestationConveyancePreference.NONE)
                 .timeout(challenge.getTimeoutDuration().toMillis())
                 .build();
@@ -194,4 +191,55 @@ public class AuthenticationService {
     public void signOut(UUID id) throws UserNotFoundException {
         userService.revokeRefreshTokens(id);
     }
+
+    public PublicKeyCredentialCreationOptionsDto startPasskeyAdd(DesiredMediumDto desiredMedium, JwtUserDetails userDetails) throws UserNotFoundException {
+        UserDto user = userService.getUserById(userDetails.getId());
+        ChallengeEntity challenge = ChallengeEntity.randomChallenge(user.id());
+        challengeRepository.save(challenge);
+        PublicKeyCredentialCreationOptions opts = new PublicKeyCredentialCreationOptionsBuilder(
+                new PublicKeyCredentialRpEntity(rpId),
+                new PublicKeyCredentialUserEntity(convertUUIDToByteArray(user.id()), user.email(), user.displayName()),
+                new DefaultChallenge(challenge.getValue()),
+                supportedAlgorithms)
+                .hints(List.of(desiredMedium.preferredMedium()))
+                .authenticatorSelection(new AuthenticatorSelectionCriteria(null, true, ResidentKeyRequirement.REQUIRED, UserVerificationRequirement.PREFERRED))
+                .attestation(AttestationConveyancePreference.NONE)
+                .excludeCredentials(user.getPasskeysAsExclusionList())
+                .timeout(challenge.getTimeoutDuration().toMillis())
+                .build();
+        return PublicKeyCredentialCreationOptionsDto.from(opts, challenge);
+    }
+
+    public UserDto addPasskey(RegistrationData data, String userAgent, UUID userId) throws ChallengeExpiredException, NoChallengeIssuedException, UserNotFoundException {
+        ChallengeEntity challenge = findByUser(userId);
+        // If verification fails, user must retry with new challenge
+        challengeRepository.delete(challenge);
+        ServerProperty server = ServerProperty.builder()
+                .origin(origin)
+                .rpId(rpId)
+                .challenge(challenge)
+                .build();
+        RegistrationParameters parameters = new RegistrationParameters(server, null, true, true);
+        RegistrationData verifiedData;
+        try {
+            verifiedData = webAuthnManager.verify(data, parameters);
+        } catch (VerificationException e) {
+            logger.info("Verification failed.", e);
+            throw new UserNotVerifiedException("Could not register user", e);
+        }
+        return userService.registerPasskey(challenge.getCreatedUser(), userAgent, verifiedData);
+    }
+
+    public void cancelPasskeyAdd(UUID user) {
+        Optional<ChallengeEntity> challengeOpt = challengeRepository.findChallengeEntityByCreatedUser(user);
+        if (challengeOpt.isEmpty()) return;
+        ChallengeEntity challenge = challengeOpt.get();
+        challengeRepository.delete(challenge);
+    }
+
+    private ChallengeEntity findByUser(UUID userId) throws NoChallengeIssuedException {
+        return challengeRepository.findChallengeEntityByCreatedUser(userId).orElseThrow(NoChallengeIssuedException::new);
+    }
+
+
 }
