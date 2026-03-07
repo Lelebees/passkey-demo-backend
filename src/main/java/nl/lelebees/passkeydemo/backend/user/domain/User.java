@@ -4,6 +4,7 @@ import com.blueconic.browscap.Capabilities;
 import com.webauthn4j.data.RegistrationData;
 import jakarta.persistence.*;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
+import nl.lelebees.passkeydemo.backend.user.domain.exception.CannotDeleteLastPasskeyException;
 import org.hibernate.annotations.NaturalId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,5 +94,12 @@ public class User {
 
     public void revokeRefreshTokens() {
         this.acceptedRefreshTokens = new ArrayList<>();
+    }
+
+    public boolean deleteKey(Passkey passkey) throws CannotDeleteLastPasskeyException {
+        if (passkeys.size() <= 1) {
+            throw new CannotDeleteLastPasskeyException();
+        }
+        return passkeys.remove(passkey);
     }
 }

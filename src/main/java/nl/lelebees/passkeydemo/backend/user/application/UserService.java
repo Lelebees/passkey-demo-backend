@@ -6,15 +6,19 @@ import com.blueconic.browscap.UserAgentService;
 import com.webauthn4j.data.RegistrationData;
 import nl.lelebees.passkeydemo.backend.security.application.dto.UserCreationParametersDto;
 import nl.lelebees.passkeydemo.backend.security.application.exception.EmailAlreadyRegisteredException;
+import nl.lelebees.passkeydemo.backend.security.application.exception.PasskeyNotFoundException;
 import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtToken;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDetailsUpdateDto;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserOverviewDto;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
+import nl.lelebees.passkeydemo.backend.user.data.PasskeyRepository;
 import nl.lelebees.passkeydemo.backend.user.data.UserRepository;
 import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
+import nl.lelebees.passkeydemo.backend.user.domain.Passkey;
 import nl.lelebees.passkeydemo.backend.user.domain.User;
+import nl.lelebees.passkeydemo.backend.user.domain.exception.CannotDeleteLastPasskeyException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,15 +35,17 @@ public class UserService {
 
     private final UserRepository repository;
     private final UserAgentParser userAgentParser;
+    private final PasskeyRepository passkeyRepository;
 
     @Autowired
-    public UserService(UserRepository repository) {
+    public UserService(UserRepository repository, PasskeyRepository passkeyRepository) {
         this.repository = repository;
         try {
             this.userAgentParser = new UserAgentService().loadParser(List.of(BROWSER, PLATFORM));
         } catch (IOException | ParseException e) {
             throw new RuntimeException(e);
         }
+        this.passkeyRepository = passkeyRepository;
     }
 
     public UserDto getUserById(UUID id) throws UserNotFoundException {
@@ -93,5 +99,13 @@ public class UserService {
         user.setEmail(newDetails.email());
         user.setDisplayName(newDetails.displayName());
         return UserOverviewDto.from(repository.save(user));
+    }
+
+    public void deletePasskey(UUID userId, byte[] passkeyId) throws UserNotFoundException, PasskeyNotFoundException, CannotDeleteLastPasskeyException {
+        User user = getFromOptional(repository.findById(userId));
+        Passkey passkey = passkeyRepository.findById(passkeyId).orElseThrow(PasskeyNotFoundException::new);
+        if (!user.deleteKey(passkey)) {
+            throw new PasskeyNotFoundException("Delete operation succeeded, but passkey was not found.");
+        }
     }
 }

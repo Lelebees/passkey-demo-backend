@@ -4,6 +4,7 @@ import com.webauthn4j.WebAuthnManager;
 import com.webauthn4j.converter.exception.DataConversionException;
 import com.webauthn4j.data.AuthenticationData;
 import com.webauthn4j.data.RegistrationData;
+import com.webauthn4j.util.Base64UrlUtil;
 import com.webauthn4j.verifier.exception.VerificationException;
 import nl.lelebees.passkeydemo.backend.security.application.AuthenticationService;
 import nl.lelebees.passkeydemo.backend.security.application.dto.*;
@@ -15,6 +16,7 @@ import nl.lelebees.passkeydemo.backend.security.application.jwt.JwtUserDetails;
 import nl.lelebees.passkeydemo.backend.user.application.dto.UserDto;
 import nl.lelebees.passkeydemo.backend.user.application.exception.UserNotFoundException;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
+import nl.lelebees.passkeydemo.backend.user.domain.exception.CannotDeleteLastPasskeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -135,6 +137,7 @@ public class AuthenticationController {
         }
     }
 
+    @PostMapping("/passkeys/add")
     public ResponseEntity<PublicKeyCredentialCreationOptionsDto> startAddPasskey(@AuthenticationPrincipal JwtUserDetails userDetails, @RequestBody DesiredMediumDto desiredMedium) {
         try {
             return ResponseEntity.ok(service.startPasskeyAdd(desiredMedium, userDetails));
@@ -143,6 +146,7 @@ public class AuthenticationController {
         }
     }
 
+    @PatchMapping("/passkeys/add")
     public ResponseEntity<UserDto> addPasskey(@RequestBody String data, @RequestHeader("User-Agent") String userAgent, @AuthenticationPrincipal JwtUserDetails userDetails) {
         RegistrationData parsedData = webAuthnManager.parseRegistrationResponseJSON(data);
         try {
@@ -156,8 +160,24 @@ public class AuthenticationController {
         }
     }
 
+    @DeleteMapping("/passkeys/add")
     public ResponseEntity<String> cancelAdd(@AuthenticationPrincipal JwtUserDetails userDetails) {
         service.cancelPasskeyAdd(userDetails.getId());
         return ResponseEntity.ok("Canceled passkey add operation.");
+    }
+
+    @DeleteMapping("/passkeys/{passkeyId}")
+    public ResponseEntity<String> deletePasskey(@AuthenticationPrincipal JwtUserDetails userDetails, @PathVariable byte[] passkeyId) {
+        try {
+            service.deletePasskey(userDetails.getId(), Base64UrlUtil.decode(passkeyId));
+            return ResponseEntity.noContent().build();
+        } catch (UserNotFoundException e) {
+            log.error("User %s (%s) not found (but had valid token)".formatted(userDetails.getEmail(), userDetails.getId()), e);
+            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "User %s (%s) not found (but had valid token)".formatted(userDetails.getEmail(), userDetails.getId()));
+        } catch (CannotDeleteLastPasskeyException e) {
+            throw new ResponseStatusException(FORBIDDEN, "Cannot delete the last passkey you own. Delete your account instead.");
+        } catch (PasskeyNotFoundException e) {
+            throw new ResponseStatusException(NOT_FOUND, "You do not have this passkey registered.");
+        }
     }
 }

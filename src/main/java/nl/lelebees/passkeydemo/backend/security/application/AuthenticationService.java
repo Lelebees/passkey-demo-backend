@@ -25,6 +25,8 @@ import nl.lelebees.passkeydemo.backend.user.data.PasskeyRepository;
 import nl.lelebees.passkeydemo.backend.user.domain.Email;
 import nl.lelebees.passkeydemo.backend.user.domain.IncorrectEmailFormatException;
 import nl.lelebees.passkeydemo.backend.user.domain.Passkey;
+import nl.lelebees.passkeydemo.backend.user.domain.exception.CannotDeleteLastPasskeyException;
+import org.hibernate.NonUniqueResultException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -238,8 +240,17 @@ public class AuthenticationService {
     }
 
     private ChallengeEntity findByUser(UUID userId) throws NoChallengeIssuedException {
-        return challengeRepository.findChallengeEntityByCreatedUser(userId).orElseThrow(NoChallengeIssuedException::new);
+        try {
+            return challengeRepository.findChallengeEntityByCreatedUser(userId).orElseThrow(NoChallengeIssuedException::new);
+        } catch (NonUniqueResultException e) {
+            challengeRepository.deleteAllByCreatedUser(userId);
+            logger.error("Error attempting to fetch challenge for %s, multiple challenges registered.".formatted(userId), e);
+            throw new NoChallengeIssuedException("Internal server state has multiple creation events", e);
+        }
     }
 
 
+    public void deletePasskey(UUID userId, byte[] passkeyId) throws UserNotFoundException, CannotDeleteLastPasskeyException, PasskeyNotFoundException {
+        userService.deletePasskey(userId, passkeyId);
+    }
 }

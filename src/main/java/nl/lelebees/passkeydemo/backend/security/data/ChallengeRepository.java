@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface ChallengeRepository extends JpaRepository<ChallengeEntity, String> {
     Optional<ChallengeEntity> findChallengeEntityByCreatedUser(UUID createdUser);
+
+    void deleteAllByCreatedUser(UUID createdUser);
 }
