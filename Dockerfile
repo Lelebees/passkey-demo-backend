@@ -10,4 +10,5 @@ COPY --from=builder /usr/src/target/*.jar ./app.jar
 
 ENTRYPOINT ["java", "-XX:+UseCompressedClassPointers", "-XX:+UseCompressedOops", \
 "-XX:+UseG1GC", "-XX:+UseStringDeduplication", \
+"-Xmx128m", "-XX:MaxMetaspaceSize=128m", \
 "-jar", "app.jar"]
